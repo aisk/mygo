@@ -77,6 +77,31 @@ $ mygo ./...
 $ mygo ...
 ```
 
+### Integrating with `go generate`
+
+You can keep `.mygo` files as the editable source and generate `.go` files before normal Go builds:
+
+```go
+// generate.go
+package main
+
+//go:generate mygo hello.mygo
+```
+
+Then run:
+
+```sh
+$ go generate ./...
+$ go test ./...
+```
+
+For multiple files or packages, point the directive at a directory:
+
+```go
+//go:generate mygo .
+//go:generate mygo ./...
+```
+
 ## Why
 
 mygo tries to add syntax sugar without adding runtime lock-in. The generated files are plain Go code:
