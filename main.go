@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -112,14 +113,13 @@ func transpileFile(inputPath string) error {
 	}
 	defer inputFile.Close()
 
-	outputFile, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer outputFile.Close()
-
-	if err := transpiler.Transpile(inputFile, outputFile); err != nil {
+	var output bytes.Buffer
+	if err := transpiler.Transpile(inputFile, &output); err != nil {
 		return fmt.Errorf("transpilation failed: %w", err)
+	}
+
+	if err := os.WriteFile(outputPath, output.Bytes(), 0644); err != nil {
+		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
 	fmt.Printf("Transpiled: %s -> %s\n", inputPath, outputPath)
