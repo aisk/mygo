@@ -103,6 +103,24 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 	return resultsExpr, nil
 }
 
+func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList) (*ast.BlockStmt, error) {
+	if handler != nil {
+		return handler, nil
+	}
+
+	resultsExpr, err := genResults(results)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.BlockStmt{
+		List: []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: resultsExpr,
+			},
+		},
+	}, nil
+}
+
 func getReaderFileName(reader io.Reader) string {
 	filename := "*unknown*"
 	if f, ok := reader.(interface{ Name() string }); ok {
@@ -138,7 +156,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 				return false
 			}
 
-			results, err := genResults(enclosingFunc.Results)
+			handler, err := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results)
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
@@ -153,13 +171,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 					Op: token.NEQ,
 					Y:  &ast.Ident{Name: "nil"},
 				},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ReturnStmt{
-							Results: results,
-						},
-					},
-				}})
+				Body: handler})
 		case *ast.ExprStmt:
 
 			tryX, ok := x.X.(*ast.TryExpr)
@@ -173,7 +185,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 				return false
 			}
 
-			results, err := genResults(enclosingFunc.Results)
+			handler, err := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results)
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
@@ -194,13 +206,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 					Op: token.NEQ,
 					Y:  &ast.Ident{Name: "nil"},
 				},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ReturnStmt{
-							Results: results,
-						},
-					},
-				},
+				Body: handler,
 			})
 		case *ast.IfStmt:
 
@@ -211,7 +217,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 					return false
 				}
 
-				results, err := genResults(enclosingFunc.Results)
+				handler, err := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results)
 				if err != nil {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
@@ -233,11 +239,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 						Op: token.NEQ,
 						Y:  &ast.Ident{Name: "nil"},
 					},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ReturnStmt{Results: results},
-						},
-					},
+					Body: handler,
 					Else: &ast.IfStmt{
 						Cond: newCond,
 						Body: x.Body,

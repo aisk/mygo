@@ -18,6 +18,20 @@ if err != nil {
 }
 ```
 
+Custom error handling is supported by placing a block after `?`:
+```go
+// .mygo input
+result := someFunc()? {
+    return fmt.Errorf("someFunc failed: %w", err)
+}
+
+// .go output
+result, err := someFunc()
+if err != nil {
+    return fmt.Errorf("someFunc failed: %w", err)
+}
+```
+
 ## Development Commands
 
 ```bash
@@ -61,20 +75,22 @@ The project is a fork/extension of Go's standard library packages (`go/ast`, `go
 
 ### Key Extension Points
 
-1. **`ast/ast.go:399-403`** — `TryExpr` struct: new AST node for `expr?` syntax
+1. **`ast/ast.go:399-404`** — `TryExpr` struct: new AST node for `expr?` syntax and optional custom error handler blocks
    ```go
    TryExpr struct {
-       X        Expr      // the expression before ?
-       Question token.Pos // position of "?"
+       X        Expr       // the expression before ?
+       Question token.Pos  // position of "?"
+       Handler  *BlockStmt // optional block after ?
    }
    ```
 
-2. **`parser/parser.go`** — Extended Go parser that recognizes `?` and wraps the preceding expression in a `TryExpr` node.
+2. **`parser/parser.go`** — Extended Go parser that recognizes `?` and wraps the preceding expression in a `TryExpr` node. If `?` is followed by `{ ... }` in a normal expression context, the block is stored as `TryExpr.Handler`; `if f()? { ... }` remains an if condition/body, not a handler.
 
 3. **`transpiler/transpiler.go`** — Core transformation logic using `astutil.Apply` (two-pass: pre/post visit). Handles three `TryExpr` contexts:
    - `AssignStmt` RHS: `result := f()?` → appends `err` to LHS, inserts `if err != nil` after
    - `ExprStmt`: `f()?` → replaces with `if err := f(); err != nil`
    - `IfStmt` condition: `if f()? > 0` → restructures with nested if for error check first
+   - Optional handlers: `result := f()? { return wrap(err) }` uses the provided block as the `if err != nil` body instead of generated zero-value returns
 
 4. **`containers/stack.go`** — Generic stack used to track the enclosing `FuncType` during AST traversal, needed to generate correct zero-value returns.
 
@@ -86,7 +102,7 @@ The transpiler is written in mygo itself. `transpiler/transpiler.mygo` is the so
 go generate ./transpiler    # runs `go run .. transpiler.mygo` (see transpiler/generate.go)
 ```
 
-Because `transpiler.go` is generated, edit `transpiler.mygo` and regenerate — direct edits to `transpiler.go` will be overwritten. The `.mygo` version uses the `?` operator (e.g. `expr := genEmptyValueExpr(field)?`) which expands to the explicit `if err != nil` blocks seen in the `.go` version. Regenerating requires a working `mygo` binary, so changes that would break transpilation must be applied carefully (and may need the `.go` edited by hand first to bootstrap).
+Because `transpiler.go` is generated, edit `transpiler.mygo` and regenerate — direct edits to `transpiler.go` will be overwritten. The `.mygo` version uses the `?` operator (e.g. `expr := genEmptyValueExpr(field)?`) and custom handlers (e.g. `enclosingFunc := getEnclosingFuncType()? { ... }`) which expand to explicit `if err != nil` blocks in the `.go` version. Regenerating requires a working `mygo` binary, so changes that would break transpilation must be applied carefully (and may need the `.go` edited by hand first to bootstrap).
 
 ### Return Value Generation
 
@@ -104,4 +120,5 @@ To add a new test case, create a `<name>.mygo` and `<name>_expected.go` pair in 
 
 - `?` is only valid inside functions whose **last** return type is `error`
 - `?` applies to the immediately preceding expression (a call that returns `(..., error)`)
+- `? { ... }` custom handlers can reference `err`; the block must return or otherwise handle control flow as appropriate
 - Nested `?` in complex expressions (beyond `BinaryExpr`, `UnaryExpr`, `ParenExpr`, `CallExpr`) may not be handled

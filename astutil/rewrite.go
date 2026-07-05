@@ -274,6 +274,7 @@ func (a *application) apply(parent ast.Node, name string, iter *iterator, n ast.
 
 	case *ast.TryExpr:
 		a.apply(n, "X", nil, n.X)
+		a.apply(n, "Handler", nil, n.Handler)
 
 	case *ast.StarExpr:
 		a.apply(n, "X", nil, n.X)
