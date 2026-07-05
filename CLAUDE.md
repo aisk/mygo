@@ -78,6 +78,16 @@ The project is a fork/extension of Go's standard library packages (`go/ast`, `go
 
 4. **`containers/stack.go`** — Generic stack used to track the enclosing `FuncType` during AST traversal, needed to generate correct zero-value returns.
 
+### Self-Hosting (Bootstrap)
+
+The transpiler is written in mygo itself. `transpiler/transpiler.mygo` is the source of truth, and `transpiler/transpiler.go` is **generated** from it:
+
+```bash
+go generate ./transpiler    # runs `go run .. transpiler.mygo` (see transpiler/generate.go)
+```
+
+Because `transpiler.go` is generated, edit `transpiler.mygo` and regenerate — direct edits to `transpiler.go` will be overwritten. The `.mygo` version uses the `?` operator (e.g. `expr := genEmptyValueExpr(field)?`) which expands to the explicit `if err != nil` blocks seen in the `.go` version. Regenerating requires a working `mygo` binary, so changes that would break transpilation must be applied carefully (and may need the `.go` edited by hand first to bootstrap).
+
 ### Return Value Generation
 
 `genResults` in `transpiler/transpiler.go` generates the zero-value return expressions for each return type when propagating an error. Supported types: numeric types, `bool`, `string`, `error`, pointer types (`*T`), and qualified types (`pkg.T`). Unhandled types cause a transpile error.
