@@ -11,9 +11,9 @@ package parser
 
 import (
 	"fmt"
-	"github.com/aisk/ego/ast"
-	"github.com/aisk/ego/scanner"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/scanner"
+	"github.com/aisk/mygo/token"
 )
 
 // The mode parameter to the Parse* functions is a set of flags (or 0).

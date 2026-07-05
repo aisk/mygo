@@ -6,8 +6,8 @@ package parser_test
 
 import (
 	"fmt"
-	"github.com/aisk/ego/parser"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/parser"
+	"github.com/aisk/mygo/token"
 )
 
 func ExampleParseFile() {

@@ -12,13 +12,13 @@ package astutil_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/aisk/ego/ast"
-	"github.com/aisk/ego/parser"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/parser"
+	"github.com/aisk/mygo/token"
 	"strings"
 	"testing"
 
-	"github.com/aisk/ego/astutil"
+	"github.com/aisk/mygo/astutil"
 )
 
 // pathToString returns a string containing the concrete types of the

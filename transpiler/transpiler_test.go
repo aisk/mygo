@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aisk/ego/internal/diff"
+	"github.com/aisk/mygo/internal/diff"
 )
 
 func TestTranspiler(t *testing.T) {
@@ -19,15 +19,15 @@ func TestTranspiler(t *testing.T) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".ego") {
-			egoFile := filepath.Join(testdata, entry.Name())
-			expectedFile := filepath.Join(testdata, strings.TrimSuffix(entry.Name(), ".ego")+"_expected.go")
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".mygo") {
+			mygoFile := filepath.Join(testdata, entry.Name())
+			expectedFile := filepath.Join(testdata, strings.TrimSuffix(entry.Name(), ".mygo")+"_expected.go")
 			
 			t.Run(entry.Name(), func(t *testing.T) {
-				// Read .ego file
-				egoContent, err := os.ReadFile(egoFile)
+				// Read .mygo file
+				mygoContent, err := os.ReadFile(mygoFile)
 				if err != nil {
-					t.Fatalf("Failed to read .ego file: %v", err)
+					t.Fatalf("Failed to read .mygo file: %v", err)
 				}
 				
 				// Read expected output
@@ -36,8 +36,8 @@ func TestTranspiler(t *testing.T) {
 					t.Fatalf("Failed to read expected.go file: %v", err)
 				}
 				
-				// Transpile the .ego content
-				input := bytes.NewReader(egoContent)
+				// Transpile the .mygo content
+				input := bytes.NewReader(mygoContent)
 				var output bytes.Buffer
 				
 				err = Transpile(input, &output)

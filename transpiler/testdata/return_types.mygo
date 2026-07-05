@@ -8,12 +8,12 @@ import (
 type intAlias int
 
 func example() (int, bool, string, intAlias, *bytes.Buffer, bytes.Buffer, byte, uintptr, float32, error) {
-        _ := os.Open("hello.ego")?
+        _ := os.Open("hello.mygo")?
         return 0, false, "", *new(intAlias), nil, *new(bytes.Buffer), 0, 0, 0, err
 }
 
 func hello() error {
-        _ := os.Open("hello.ego")?
+        _ := os.Open("hello.mygo")?
         return nil
 }
 

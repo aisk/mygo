@@ -1,4 +1,4 @@
-module github.com/aisk/ego
+module github.com/aisk/mygo
 
 go 1.24.3
 

@@ -4,7 +4,7 @@
 
 package astutil
 
-import "github.com/aisk/ego/ast"
+import "github.com/aisk/mygo/ast"
 
 // Unparen returns e with any enclosing parentheses stripped.
 // Deprecated: use [ast.Unparen].

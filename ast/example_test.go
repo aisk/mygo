@@ -6,10 +6,10 @@ package ast_test
 
 import (
 	"fmt"
-	"github.com/aisk/ego/ast"
-	"github.com/aisk/ego/format"
-	"github.com/aisk/ego/parser"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/format"
+	"github.com/aisk/mygo/parser"
+	"github.com/aisk/mygo/token"
 	"strings"
 )
 

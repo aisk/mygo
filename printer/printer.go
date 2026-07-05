@@ -7,9 +7,9 @@ package printer
 
 import (
 	"fmt"
-	"github.com/aisk/ego/ast"
+	"github.com/aisk/mygo/ast"
 	"go/build/constraint"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/token"
 	"io"
 	"os"
 	"strings"
@@ -100,7 +100,7 @@ func (p *printer) internalError(msg ...any) {
 	if debug {
 		fmt.Print(p.pos.String() + ": ")
 		fmt.Println(msg...)
-		panic("github.com/aisk/ego/printer")
+		panic("github.com/aisk/mygo/printer")
 	}
 }
 

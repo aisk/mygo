@@ -6,9 +6,9 @@ package format
 
 import (
 	"bytes"
-	"github.com/aisk/ego/ast"
-	"github.com/aisk/ego/parser"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/parser"
+	"github.com/aisk/mygo/token"
 	"os"
 	"strings"
 	"testing"
@@ -113,7 +113,7 @@ func TestSource(t *testing.T) {
 // The formatted result must look the same as the input for successful tests.
 var tests = []string{
 	// declaration lists
-	`import "github.com/aisk/ego/format"`,
+	`import "github.com/aisk/mygo/format"`,
 	"var x int",
 	"var x int\n\ntype T struct{}",
 

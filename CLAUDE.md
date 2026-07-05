@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ego** is an experimental Go preprocessor/transpiler that introduces the `?` operator for more concise error handling. It transforms `.ego` source files into standard `.go` files.
+**mygo** is an experimental Go preprocessor/transpiler that introduces the `?` operator for more concise error handling. It transforms `.mygo` source files into standard `.go` files.
 
 Example transformation:
 ```go
-// .ego input
+// .mygo input
 result := someFunc()?
 
 // .go output
@@ -22,7 +22,7 @@ if err != nil {
 
 ```bash
 # Build
-go build -o ego
+go build -o mygo
 
 # Run all tests
 go test -v ./...
@@ -31,29 +31,32 @@ go test -v ./...
 go test -v ./transpiler
 
 # Run a specific test case
-go test -v ./transpiler -run TestTranspiler/simple.ego
+go test -v ./transpiler -run TestTranspiler/simple.mygo
 ```
 
 ## Usage
 
 ```bash
 # From stdin
-cat input.ego | ./ego > output.go
+cat input.mygo | ./mygo > output.go
 
 # Specific files or directories
-ego file.ego
-ego ./folder          # non-recursive
-ego ./...             # recursive
+mygo file.mygo
+mygo ./folder          # non-recursive
+mygo ./...             # recursive
+
+# Install globally
+go install github.com/aisk/mygo@latest
 ```
 
 ## Architecture
 
-The project is a fork/extension of Go's standard library packages (`go/ast`, `go/parser`, etc.). Each sub-package mirrors its stdlib counterpart with ego-specific modifications.
+The project is a fork/extension of Go's standard library packages (`go/ast`, `go/parser`, etc.). Each sub-package mirrors its stdlib counterpart with mygo-specific modifications.
 
 ### Data Flow
 
 ```
-.ego source → parser → AST (with TryExpr nodes) → transpiler → modified AST → printer/format → .go output
+.mygo source → parser → AST (with TryExpr nodes) → transpiler → modified AST → printer/format → .go output
 ```
 
 ### Key Extension Points
@@ -82,10 +85,10 @@ The project is a fork/extension of Go's standard library packages (`go/ast`, `go
 ## Testing
 
 Transpiler tests use a file-based fixture pattern in `transpiler/testdata/`:
-- Input: `<name>.ego`
+- Input: `<name>.mygo`
 - Expected output: `<name>_expected.go`
 
-To add a new test case, create a `<name>.ego` and `<name>_expected.go` pair in that directory — the test runner discovers them automatically.
+To add a new test case, create a `<name>.mygo` and `<name>_expected.go` pair in that directory — the test runner discovers them automatically.
 
 ## Constraints
 

@@ -9,8 +9,8 @@ package parser
 import (
 	"bytes"
 	"errors"
-	"github.com/aisk/ego/ast"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/token"
 	"io"
 	"io/fs"
 	"os"

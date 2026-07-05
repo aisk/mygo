@@ -7,20 +7,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aisk/ego/transpiler"
+	"github.com/aisk/mygo/transpiler"
 	"golang.org/x/term"
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: ego [options] [files...|folders...]\n")
+		fmt.Fprintf(os.Stderr, "Usage: mygo [options] [files...|folders...]\n")
 		fmt.Fprintf(os.Stderr, "\nOptions:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  ego file1.ego file2.ego    # Transpile specific files\n")
-		fmt.Fprintf(os.Stderr, "  ego ./folder               # Transpile all .ego files in folder\n")
-		fmt.Fprintf(os.Stderr, "  ego ./...                  # Transpile all .ego files recursively\n")
-		fmt.Fprintf(os.Stderr, "  ego                        # Transpile file from stdin\n")
+		fmt.Fprintf(os.Stderr, "  mygo file1.mygo file2.mygo    # Transpile specific files\n")
+		fmt.Fprintf(os.Stderr, "  mygo ./folder                 # Transpile all .mygo files in folder\n")
+		fmt.Fprintf(os.Stderr, "  mygo ./...                    # Transpile all .mygo files recursively\n")
+		fmt.Fprintf(os.Stderr, "  mygo                          # Transpile file from stdin\n")
 	}
 	flag.Parse()
 
@@ -65,7 +65,7 @@ func processPath(path string) error {
 			if err != nil {
 				return err
 			}
-			if !info.IsDir() && strings.HasSuffix(filePath, ".ego") {
+			if !info.IsDir() && strings.HasSuffix(filePath, ".mygo") {
 				return transpileFile(filePath)
 			}
 			return nil
@@ -85,7 +85,7 @@ func processPath(path string) error {
 			return err
 		}
 		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".ego") {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".mygo") {
 				filePath := filepath.Join(path, entry.Name())
 				if err := transpileFile(filePath); err != nil {
 					return err
@@ -96,15 +96,15 @@ func processPath(path string) error {
 	}
 
 	// Process individual file
-	if !strings.HasSuffix(path, ".ego") {
-		return fmt.Errorf("file must have .ego extension: %s", path)
+	if !strings.HasSuffix(path, ".mygo") {
+		return fmt.Errorf("file must have .mygo extension: %s", path)
 	}
 	return transpileFile(path)
 }
 
 func transpileFile(inputPath string) error {
-	// Generate output path by replacing .ego with .go
-	outputPath := strings.TrimSuffix(inputPath, ".ego") + ".go"
+	// Generate output path by replacing .mygo with .go
+	outputPath := strings.TrimSuffix(inputPath, ".mygo") + ".go"
 
 	inputFile, err := os.Open(inputPath)
 	if err != nil {

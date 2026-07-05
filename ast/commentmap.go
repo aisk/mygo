@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"cmp"
 	"fmt"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/token"
 	"slices"
 	"strings"
 )

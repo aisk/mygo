@@ -1,12 +1,10 @@
-# ego 
+# mygo
 
 ![logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tszc13irysyrnvg34lzp.png)
 
-`ego` means **E**rror can be handled implicitly in **GO**.
+mygo is an experimental *toy* Go preprocessor/transpiler that introduces the `?` operator for more concise error handling. It aims to reduce boilerplate code by replacing verbose error checks with a single character.
 
-It's an experimental *toy* Go preprocessor/transpiler that introduces the `?` operator for more concise error handling. It aims to reduce boilerplate code by replacing verbose error checks with a single character.
-
-For example, `ego` transforms this:
+For example, `mygo` transforms this:
 
 ```go
 s := hello()?
@@ -24,12 +22,12 @@ if err != nil {
 ## Installation
 
 ```sh
-$ go install github.com/aisk/ego@latest
+$ go install github.com/aisk/mygo@latest
 ```
 
 ## Usage
 
-Create a file named `hello.ego` with the following content:
+Create a file named `hello.mygo` with the following content:
 
 ```go
 package main
@@ -40,7 +38,7 @@ import (
 )
 
 func hello() error {
-	f := os.Open("hello.ego")?
+	f := os.Open("hello.mygo")?
 	defer f.Close()
 	s := io.ReadAll(f)?
 	println(string(s))
@@ -52,23 +50,23 @@ func main() {
 }
 ```
 
-`ego` supports multiple ways to specify transpile targets:
+`mygo` supports multiple ways to specify transpile targets:
 
 ```sh
 # Transpile from stdin
-$ cat hello.ego | ego > hello.go
+$ cat hello.mygo | mygo > hello.go
 
 # Transpile specific files
-$ ego hello.ego
+$ mygo hello.mygo
 
-# Transpile all .ego files in a directory (non-recursive)
-$ ego .
+# Transpile all .mygo files in a directory (non-recursive)
+$ mygo .
 
-# Transpile all .ego files recursively
-$ ego ./...
+# Transpile all .mygo files recursively
+$ mygo ./...
 
-# Transpile all .ego files in current directory recursively
-$ ego ...
+# Transpile all .mygo files in current directory recursively
+$ mygo ...
 ```
 
 The transpiled `hello.go` will contain:
@@ -82,7 +80,7 @@ import (
 )
 
 func hello() error {
-	f, err := os.Open("hello.ego")
+	f, err := os.Open("hello.mygo")
 	if err != nil {
 		return err
 	}
@@ -107,8 +105,8 @@ The goal of this project is to design a Go language extension with more syntacti
 
 **Core Design Philosophy: Zero Lock-in**
 
-- If you decide this project isn't suitable, you can simply delete all `.ego` files and continue development with the original Go code
-- If your team doesn't want to introduce ego, you can edit `.ego` files locally and commit the generated standard Go code to your version control server
+- If you decide this project isn't suitable, you can simply delete all `.mygo` files and continue development with the original Go code
+- If your team doesn't want to introduce mygo, you can edit `.mygo` files locally and commit the generated standard Go code to your version control server
 - The precompiled Go code has no runtime dependencies or special libraries
 
 **Design Constraints**
@@ -123,4 +121,4 @@ These constraints ensure the generated Go code remains clean, readable, and iden
 
 ## TODO
 
-- [ ] Implement a Go-compatible command-line tool that supports all Go flags and commands, with the only difference being that it preprocesses all `.ego` files to `.go` files before running compile or test operations
+- [ ] Implement a Go-compatible command-line tool that supports all Go flags and commands, with the only difference being that it preprocesses all `.mygo` files to `.go` files before running compile or test operations

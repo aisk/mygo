@@ -6,7 +6,7 @@ package ast
 
 import (
 	"cmp"
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/token"
 	"slices"
 	"strconv"
 )

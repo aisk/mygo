@@ -5,7 +5,7 @@
 package ast
 
 import (
-	"github.com/aisk/ego/token"
+	"github.com/aisk/mygo/token"
 	"slices"
 )
 
