@@ -2,7 +2,7 @@
 
 ![logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tszc13irysyrnvg34lzp.png)
 
-mygo is an experimental *toy* Go preprocessor/transpiler that introduces the `?` operator for more concise error handling. It aims to reduce boilerplate code by replacing verbose error checks with a single character.
+mygo is an experimental *toy* Go preprocessor/transpiler that adds a `?` operator for concise error handling.
 
 For example, `mygo` transforms this:
 
@@ -10,7 +10,7 @@ For example, `mygo` transforms this:
 s := hello()?
 ```
 
-Into this:
+into standard Go:
 
 ```go
 s, err := hello()
@@ -27,7 +27,7 @@ $ go install github.com/aisk/mygo@latest
 
 ## Usage
 
-Create a file named `hello.mygo` with the following content:
+Create `hello.mygo`:
 
 ```go
 package main
@@ -53,72 +53,29 @@ func main() {
 `mygo` supports multiple ways to specify transpile targets:
 
 ```sh
-# Transpile from stdin
 $ cat hello.mygo | mygo > hello.go
-
-# Transpile specific files
 $ mygo hello.mygo
-
-# Transpile all .mygo files in a directory (non-recursive)
 $ mygo .
-
-# Transpile all .mygo files recursively
 $ mygo ./...
-
-# Transpile all .mygo files in current directory recursively
 $ mygo ...
 ```
 
-The transpiled `hello.go` will contain:
+## Why
 
-```go
-package main
+mygo tries to add syntax sugar without adding runtime lock-in. The generated files are plain Go code:
 
-import (
-	"io"
-	"os"
-)
+- no runtime dependency
+- no special library
+- no custom Go compiler
 
-func hello() error {
-	f, err := os.Open("hello.mygo")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	s, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-	println(string(s))
-	return nil
-}
+## Constraints
 
-func main() {
-	hello()
-}
+To keep the generated Go readable, mygo intentionally avoids some rewrites:
 
-```
-
-## Design Principles
-
-The goal of this project is to design a Go language extension with more syntactic sugar, implemented as a preprocessor. The precompiled result is **completely standard Go code**, indistinguishable from hand-written Go code.
-
-**Core Design Philosophy: Zero Lock-in**
-
-- If you decide this project isn't suitable, you can simply delete all `.mygo` files and continue development with the original Go code
-- If your team doesn't want to introduce mygo, you can edit `.mygo` files locally and commit the generated standard Go code to your version control server
-- The precompiled Go code has no runtime dependencies or special libraries
-
-**Design Constraints**
-
-To achieve zero lock-in, there are some intentional limitations:
-
-1. **The ? operator does not support method chaining** - For example, `a()?.b()?` is not supported because it would require introducing intermediate variables, and it's difficult to provide reasonable names for these variables
-2. **Currently does not support the ? operator in for loop initialization statements** - For example, `for item := range getItems()?` is not yet supported. This limitation may be removed in the future
-3. **When discarding return values, functions must have only an error return** - When you don't accept any return values from a function (i.e., when using `f()?`), the function must have exactly one return value of type `error`. If a function returns multiple values (e.g., `func f() (int, error)`), you need to use `_` to discard the non-error return values: `_ = f()?`
-
-These constraints ensure the generated Go code remains clean, readable, and identical to hand-written code.
+- method chaining like `a()?.b()?` is not supported
+- `?` in `for` initialization statements is not supported yet
+- expression statements like `f()?` require `f` to return only `error`; use `_ = f()?` when discarding non-error return values
 
 ## TODO
 
-- [ ] Implement a Go-compatible command-line tool that supports all Go flags and commands, with the only difference being that it preprocesses all `.mygo` files to `.go` files before running compile or test operations
+- [ ] Implement a Go-compatible command-line tool that preprocesses `.mygo` files before running standard Go commands
