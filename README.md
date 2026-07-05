@@ -1,6 +1,6 @@
 # mygo
 
-![logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tszc13irysyrnvg34lzp.png)
+![logo](https://github.com/user-attachments/assets/7867a592-fe16-4997-bc95-f634e453a0c7)
 
 mygo is an experimental *toy* Go preprocessor/transpiler that adds a `?` operator for concise error handling.
 
