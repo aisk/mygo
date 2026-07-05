@@ -19,6 +19,23 @@ if err != nil {
 }
 ```
 
+You can also provide a custom error handler block after `?`:
+
+```go
+s := hello()? {
+    return fmt.Errorf("hello failed: %w", err)
+}
+```
+
+which becomes:
+
+```go
+s, err := hello()
+if err != nil {
+    return fmt.Errorf("hello failed: %w", err)
+}
+```
+
 ## Installation
 
 ```sh
@@ -75,6 +92,7 @@ To keep the generated Go readable, mygo intentionally avoids some rewrites:
 - method chaining like `a()?.b()?` is not supported
 - `?` in `for` initialization statements is not supported yet
 - expression statements like `f()?` require `f` to return only `error`; use `_ = f()?` when discarding non-error return values
+- custom handlers use the generated `err` variable and must return or otherwise handle control flow themselves
 
 ## TODO
 

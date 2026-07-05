@@ -1,0 +1,15 @@
+package main
+
+import "fmt"
+
+func process() error {
+	r := SomeFunction() ? {
+		return fmt.Errorf("something failed: %v", err)
+	}
+	fmt.Println(r)
+	return nil
+}
+
+func SomeFunction() (string, error) {
+	return "hello", nil
+}

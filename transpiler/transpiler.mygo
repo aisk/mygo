@@ -103,6 +103,21 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 	return resultsExpr, nil
 }
 
+func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList) (*ast.BlockStmt, error) {
+	if handler != nil {
+		return handler, nil
+	}
+
+	resultsExpr := genResults(results)?
+	return &ast.BlockStmt{
+		List: []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: resultsExpr,
+			},
+		},
+	}, nil
+}
+
 func getReaderFileName(reader io.Reader) string {
 	filename := "*unknown*"
 	if f, ok := reader.(interface{ Name() string }); ok {
@@ -131,14 +146,12 @@ func Transpile(input io.Reader, output io.Writer) error {
 			if !ok {
 				break
 			}
-			enclosingFunc, err := getEnclosingFuncType()
-			if err != nil {
+			enclosingFunc := getEnclosingFuncType()? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			results, err := genResults(enclosingFunc.Results)
-			if err != nil {
+			handler := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results)? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
@@ -152,13 +165,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 					Op: token.NEQ,
 					Y:  &ast.Ident{Name: "nil"},
 				},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ReturnStmt{
-							Results: results,
-						},
-					},
-				}})
+				Body: handler})
 		case *ast.ExprStmt:
 			// Handle f()?
 			tryX, ok := x.X.(*ast.TryExpr)
@@ -166,14 +173,12 @@ func Transpile(input io.Reader, output io.Writer) error {
 				break
 			}
 
-			enclosingFunc, err := getEnclosingFuncType()
-			if err != nil {
+			enclosingFunc := getEnclosingFuncType()? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			results, err := genResults(enclosingFunc.Results)
-			if err != nil {
+			handler := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results)? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
@@ -193,26 +198,18 @@ func Transpile(input io.Reader, output io.Writer) error {
 					Op: token.NEQ,
 					Y:  &ast.Ident{Name: "nil"},
 				},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ReturnStmt{
-							Results: results,
-						},
-					},
-				},
+				Body: handler,
 			})
 		case *ast.IfStmt:
 			// Handle if statements with TryExpr in condition
 			// Specifically handle the pattern: if f()? > 0 { ... }
 			if tryExpr := findTopLevelTryExpr(x.Cond); tryExpr != nil {
-				enclosingFunc, err := getEnclosingFuncType()
-				if err != nil {
+				enclosingFunc := getEnclosingFuncType()? {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
 
-				results, err := genResults(enclosingFunc.Results)
-				if err != nil {
+				handler := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results)? {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
@@ -235,11 +232,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 						Op: token.NEQ,
 						Y:  &ast.Ident{Name: "nil"},
 					},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ReturnStmt{Results: results},
-						},
-					},
+					Body: handler,
 					Else: &ast.IfStmt{
 						Cond: newCond,
 						Body: x.Body,

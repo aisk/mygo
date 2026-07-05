@@ -920,3 +920,26 @@ func TestTryExpr(t *testing.T) {
 		t.Errorf("expected '?' at offset %d, got %d", 30, fset.Position(tryExpr.Question).Offset)
 	}
 }
+
+func TestTryExprWithHandler(t *testing.T) {
+	src := `package p; func f() { result := myFunc()? { return err } }`
+	fset := token.NewFileSet()
+	f, err := ParseFile(fset, "", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	funcDecl := f.Decls[0].(*ast.FuncDecl)
+	assignStmt := funcDecl.Body.List[0].(*ast.AssignStmt)
+	tryExpr := assignStmt.Rhs[0].(*ast.TryExpr)
+
+	if tryExpr.Handler == nil {
+		t.Fatal("expected try expression handler")
+	}
+	if len(tryExpr.Handler.List) != 1 {
+		t.Fatalf("expected 1 handler statement, got %d", len(tryExpr.Handler.List))
+	}
+	if _, ok := tryExpr.Handler.List[0].(*ast.ReturnStmt); !ok {
+		t.Fatalf("expected handler return statement, got %T", tryExpr.Handler.List[0])
+	}
+}

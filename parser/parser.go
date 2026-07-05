@@ -27,9 +27,9 @@ package parser
 import (
 	"fmt"
 	"github.com/aisk/mygo/ast"
-	"go/build/constraint"
 	"github.com/aisk/mygo/scanner"
 	"github.com/aisk/mygo/token"
+	"go/build/constraint"
 	"strings"
 )
 
@@ -1770,7 +1770,11 @@ func (p *parser) parsePrimaryExpr(x ast.Expr) ast.Expr {
 		case token.QUESTION:
 			pos := p.pos
 			p.next()
-			x = &ast.TryExpr{X: x, Question: pos}
+			try := &ast.TryExpr{X: x, Question: pos}
+			if p.exprLev >= 0 && p.tok == token.LBRACE {
+				try.Handler = p.parseBlockStmt()
+			}
+			x = try
 		case token.LBRACE:
 			// operand may have returned a parenthesized complit
 			// type; accept it but complain if we have a complit

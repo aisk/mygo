@@ -122,6 +122,9 @@ func Walk(v Visitor, node Node) {
 
 	case *TryExpr:
 		Walk(v, n.X)
+		if n.Handler != nil {
+			Walk(v, n.Handler)
+		}
 
 	case *StarExpr:
 		Walk(v, n.X)

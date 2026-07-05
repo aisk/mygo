@@ -398,8 +398,9 @@ type (
 
 	// A TryExpr node represents an expression followed by the `?` operator.
 	TryExpr struct {
-		X        Expr      // expression
-		Question token.Pos // position of "?"
+		X        Expr       // expression
+		Question token.Pos  // position of "?"
+		Handler  *BlockStmt // optional block for custom error handling
 	}
 
 	// A StarExpr node represents an expression of the form "*" Expression.
@@ -552,13 +553,18 @@ func (x *IndexListExpr) End() token.Pos  { return x.Rbrack + 1 }
 func (x *SliceExpr) End() token.Pos      { return x.Rbrack + 1 }
 func (x *TypeAssertExpr) End() token.Pos { return x.Rparen + 1 }
 func (x *CallExpr) End() token.Pos       { return x.Rparen + 1 }
-func (x *TryExpr) End() token.Pos        { return x.Question + 1 }
-func (x *StarExpr) End() token.Pos       { return x.X.End() }
-func (x *UnaryExpr) End() token.Pos      { return x.X.End() }
-func (x *BinaryExpr) End() token.Pos     { return x.Y.End() }
-func (x *KeyValueExpr) End() token.Pos   { return x.Value.End() }
-func (x *ArrayType) End() token.Pos      { return x.Elt.End() }
-func (x *StructType) End() token.Pos     { return x.Fields.End() }
+func (x *TryExpr) End() token.Pos {
+	if x.Handler != nil {
+		return x.Handler.End()
+	}
+	return x.Question + 1
+}
+func (x *StarExpr) End() token.Pos     { return x.X.End() }
+func (x *UnaryExpr) End() token.Pos    { return x.X.End() }
+func (x *BinaryExpr) End() token.Pos   { return x.Y.End() }
+func (x *KeyValueExpr) End() token.Pos { return x.Value.End() }
+func (x *ArrayType) End() token.Pos    { return x.Elt.End() }
+func (x *StructType) End() token.Pos   { return x.Fields.End() }
 func (x *FuncType) End() token.Pos {
 	if x.Results != nil {
 		return x.Results.End()
