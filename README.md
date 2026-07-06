@@ -118,7 +118,3 @@ To keep the generated Go readable, mygo intentionally avoids some rewrites:
 - `?` in `for` initialization statements is not supported yet
 - expression statements like `f()?` require `f` to return only `error`; use `_ = f()?` when discarding non-error return values
 - custom handlers use the generated `err` variable and must return or otherwise handle control flow themselves
-
-## TODO
-
-- [ ] Implement a Go-compatible command-line tool that preprocesses `.mygo` files before running standard Go commands
