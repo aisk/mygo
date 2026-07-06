@@ -24,8 +24,34 @@ func writeGeneratedCodeComment(output io.Writer) error {
 	return err
 }
 
-func preVisit(c *astutil.Cursor) bool {
+func posAfterTrailingComments(fset *token.FileSet, comments []*ast.CommentGroup, stmt ast.Stmt) token.Pos {
+	pos := stmt.End()
+	line := fset.Position(stmt.Pos()).Line
+	found := false
+	for _, comment := range comments {
+		commentPos := fset.Position(comment.Pos())
+		if commentPos.Line == line && comment.Pos() >= pos {
+			pos = comment.End() + 1
+			found = true
+		}
+	}
+	if !found {
+		return token.NoPos
+	}
+	return pos
+}
 
+func genErrNotNilCond(pos token.Pos) ast.Expr {
+	return &ast.BinaryExpr{
+		X:     &ast.Ident{NamePos: pos, Name: "err"},
+		OpPos: pos,
+		Op:    token.NEQ,
+		Y:     &ast.Ident{NamePos: pos, Name: "nil"},
+	}
+}
+
+func preVisit(c *astutil.Cursor) bool {
+	// Push FuncType to a stack for find the enclosing one.
 	n := c.Node()
 	switch x := n.(type) {
 	case *ast.FuncDecl:
@@ -94,11 +120,13 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 	fields := results.List
 	var resultsExpr []ast.Expr
 
+	// Check if the last parameter is an error type
 	lastField := fields[len(fields)-1]
 	if ident, ok := lastField.Type.(*ast.Ident); !ok || ident.Name != "error" {
 		return nil, fmt.Errorf("try expression used in function that does not return an error")
 	}
 
+	// Generate empty values for all parameters
 	for _, field := range fields {
 		expr, err := genEmptyValueExpr(field)
 		if err != nil {
@@ -107,12 +135,13 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 		resultsExpr = append(resultsExpr, expr)
 	}
 
+	// Replace the last parameter (which is error) with "err"
 	resultsExpr[len(resultsExpr)-1] = &ast.Ident{Name: "err"}
 
 	return resultsExpr, nil
 }
 
-func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList) (*ast.BlockStmt, error) {
+func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList, pos token.Pos) (*ast.BlockStmt, error) {
 	if handler != nil {
 		return handler, nil
 	}
@@ -121,13 +150,22 @@ func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList) (*ast.
 	if err != nil {
 		return nil, err
 	}
-	return &ast.BlockStmt{
+	if pos.IsValid() {
+		resultsExpr[len(resultsExpr)-1] = &ast.Ident{NamePos: pos, Name: "err"}
+	}
+	block := &ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ReturnStmt{
 				Results: resultsExpr,
 			},
 		},
-	}, nil
+	}
+	if pos.IsValid() {
+		block.Lbrace = pos
+		block.List[0].(*ast.ReturnStmt).Return = pos
+		block.Rbrace = pos
+	}
+	return block, nil
 }
 
 func getReaderFileName(reader io.Reader) string {
@@ -140,10 +178,12 @@ func getReaderFileName(reader io.Reader) string {
 
 func Transpile(input io.Reader, output io.Writer) error {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, getReaderFileName(input), input, 0)
+	file, err := parser.ParseFile(fset, getReaderFileName(input), input, parser.ParseComments)
 	if err != nil {
 		return err
 	}
+
+	// ast.Print(fset, file)
 
 	var transpileError error
 
@@ -151,21 +191,24 @@ func Transpile(input io.Reader, output io.Writer) error {
 		n := c.Node()
 		switch x := n.(type) {
 		case *ast.FuncDecl, *ast.FuncLit:
-
+			// Pop the FuncType stack.
 			fstack.Pop()
 		case *ast.AssignStmt:
-
+			// Handle err := f()?
 			rhs, ok := x.Rhs[0].(*ast.TryExpr)
 			if !ok {
 				break
 			}
+			ifPos := posAfterTrailingComments(fset, file.Comments, x)
 			enclosingFunc, err := getEnclosingFuncType()
+
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			handler, err := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results)
+			handler, err := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results, ifPos)
+
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
@@ -175,32 +218,33 @@ func Transpile(input io.Reader, output io.Writer) error {
 			x.Lhs = append(x.Lhs, &ast.Ident{Name: "err"})
 
 			c.InsertAfter(&ast.IfStmt{
-				Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "err"},
-					Op: token.NEQ,
-					Y:  &ast.Ident{Name: "nil"},
-				},
+				If:   ifPos,
+				Cond: genErrNotNilCond(ifPos),
 				Body: handler})
 		case *ast.ExprStmt:
-
+			// Handle f()?
 			tryX, ok := x.X.(*ast.TryExpr)
 			if !ok {
 				break
 			}
+			ifPos := posAfterTrailingComments(fset, file.Comments, x)
 
 			enclosingFunc, err := getEnclosingFuncType()
+
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			handler, err := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results)
+			handler, err := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results, ifPos)
+
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
 			c.Replace(&ast.IfStmt{
+				If: ifPos,
 				Init: &ast.AssignStmt{
 					Lhs: []ast.Expr{
 						&ast.Ident{Name: "err"},
@@ -210,31 +254,34 @@ func Transpile(input io.Reader, output io.Writer) error {
 						tryX.X,
 					},
 				},
-				Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "err"},
-					Op: token.NEQ,
-					Y:  &ast.Ident{Name: "nil"},
-				},
+				Cond: genErrNotNilCond(ifPos),
 				Body: handler,
 			})
 		case *ast.IfStmt:
-
+			// Handle if statements with TryExpr in condition
+			// Specifically handle the pattern: if f()? > 0 { ... }
 			if tryExpr := findTopLevelTryExpr(x.Cond); tryExpr != nil {
+				ifPos := posAfterTrailingComments(fset, file.Comments, x)
 				enclosingFunc, err := getEnclosingFuncType()
+
 				if err != nil {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
 
-				handler, err := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results)
+				handler, err := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results, ifPos)
+
 				if err != nil {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
 
+				// Replace the TryExpr with a variable
 				newCond := replaceTryExpr(x.Cond, tryExpr, "result")
 
+				// Create the new if statement with init
 				newIf := &ast.IfStmt{
+					If: ifPos,
 					Init: &ast.AssignStmt{
 						Lhs: []ast.Expr{
 							&ast.Ident{Name: "result"},
@@ -243,11 +290,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 						Tok: token.DEFINE,
 						Rhs: []ast.Expr{tryExpr.X},
 					},
-					Cond: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "err"},
-						Op: token.NEQ,
-						Y:  &ast.Ident{Name: "nil"},
-					},
+					Cond: genErrNotNilCond(ifPos),
 					Body: handler,
 					Else: &ast.IfStmt{
 						Cond: newCond,
@@ -256,8 +299,10 @@ func Transpile(input io.Reader, output io.Writer) error {
 					},
 				}
 
+				// Handle init statement if it exists
 				if x.Init != nil {
-
+					// If there's an init statement, we need to create a new if statement
+					// that incorporates both the init and the error handling
 					newIf.Init = x.Init
 				}
 
@@ -271,6 +316,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 	if transpileError != nil {
 		return transpileError
 	}
+
 	if err := writeGeneratedCodeComment(output); err != nil {
 		return err
 	}
@@ -280,6 +326,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 	return nil
 }
 
+// containsTryExpr checks if an expression contains any TryExpr nodes
 func containsTryExpr(expr ast.Expr) bool {
 	found := false
 	ast.Inspect(expr, func(n ast.Node) bool {
@@ -292,17 +339,22 @@ func containsTryExpr(expr ast.Expr) bool {
 	return found
 }
 
+// transformTryExpr transforms an expression containing TryExpr into a new expression
+// and returns the assignments needed to handle error checking
 func transformTryExpr(expr ast.Expr, prefix string, results []ast.Expr) (ast.Expr, []ast.Stmt) {
 	var assignments []ast.Stmt
 
+	// Create a map to track TryExpr replacements
 	tryReplacements := make(map[*ast.TryExpr]string)
 
+	// First pass: collect all TryExpr nodes and create replacement variables
 	ast.Inspect(expr, func(n ast.Node) bool {
 		if tryExpr, ok := n.(*ast.TryExpr); ok {
 			if _, exists := tryReplacements[tryExpr]; !exists {
 				varName := fmt.Sprintf("%s%d", prefix, len(tryReplacements))
 				tryReplacements[tryExpr] = varName
 
+				// Create assignment statement
 				assign := &ast.AssignStmt{
 					Lhs: []ast.Expr{
 						&ast.Ident{Name: varName},
@@ -312,6 +364,7 @@ func transformTryExpr(expr ast.Expr, prefix string, results []ast.Expr) (ast.Exp
 					Rhs: []ast.Expr{tryExpr.X},
 				}
 
+				// Create error check
 				errCheck := &ast.IfStmt{
 					Cond: &ast.BinaryExpr{
 						X:  &ast.Ident{Name: "err"},
@@ -331,6 +384,9 @@ func transformTryExpr(expr ast.Expr, prefix string, results []ast.Expr) (ast.Exp
 		return true
 	})
 
+	// Second pass: create a new expression with TryExpr replaced
+	// We need to create a deep copy of the expression
+	// For now, we'll use a simple approach by walking and replacing
 	var transformExpr func(ast.Expr) ast.Expr
 	transformExpr = func(e ast.Expr) ast.Expr {
 		switch v := e.(type) {
@@ -368,12 +424,13 @@ func transformTryExpr(expr ast.Expr, prefix string, results []ast.Expr) (ast.Exp
 	return newExpr, assignments
 }
 
+// findTopLevelTryExpr finds the top-level TryExpr in an expression
 func findTopLevelTryExpr(expr ast.Expr) *ast.TryExpr {
 	switch v := expr.(type) {
 	case *ast.TryExpr:
 		return v
 	case *ast.BinaryExpr:
-
+		// Check both sides of binary expression
 		if left := findTopLevelTryExpr(v.X); left != nil {
 			return left
 		}
@@ -383,7 +440,7 @@ func findTopLevelTryExpr(expr ast.Expr) *ast.TryExpr {
 	case *ast.UnaryExpr:
 		return findTopLevelTryExpr(v.X)
 	case *ast.CallExpr:
-
+		// Check function and arguments
 		if fun := findTopLevelTryExpr(v.Fun); fun != nil {
 			return fun
 		}
@@ -396,6 +453,7 @@ func findTopLevelTryExpr(expr ast.Expr) *ast.TryExpr {
 	return nil
 }
 
+// replaceTryExpr replaces a specific TryExpr with a variable name
 func replaceTryExpr(expr ast.Expr, oldExpr *ast.TryExpr, varName string) ast.Expr {
 	if expr == oldExpr {
 		return &ast.Ident{Name: varName}

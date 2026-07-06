@@ -22,6 +22,32 @@ func writeGeneratedCodeComment(output io.Writer) error {
 	return err
 }
 
+func posAfterTrailingComments(fset *token.FileSet, comments []*ast.CommentGroup, stmt ast.Stmt) token.Pos {
+	pos := stmt.End()
+	line := fset.Position(stmt.Pos()).Line
+	found := false
+	for _, comment := range comments {
+		commentPos := fset.Position(comment.Pos())
+		if commentPos.Line == line && comment.Pos() >= pos {
+			pos = comment.End() + 1
+			found = true
+		}
+	}
+	if !found {
+		return token.NoPos
+	}
+	return pos
+}
+
+func genErrNotNilCond(pos token.Pos) ast.Expr {
+	return &ast.BinaryExpr{
+		X:     &ast.Ident{NamePos: pos, Name: "err"},
+		OpPos: pos,
+		Op:    token.NEQ,
+		Y:     &ast.Ident{NamePos: pos, Name: "nil"},
+	}
+}
+
 func preVisit(c *astutil.Cursor) bool {
 	// Push FuncType to a stack for find the enclosing one.
 	n := c.Node()
@@ -110,19 +136,28 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 	return resultsExpr, nil
 }
 
-func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList) (*ast.BlockStmt, error) {
+func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList, pos token.Pos) (*ast.BlockStmt, error) {
 	if handler != nil {
 		return handler, nil
 	}
 
 	resultsExpr := genResults(results)?
-	return &ast.BlockStmt{
+	if pos.IsValid() {
+		resultsExpr[len(resultsExpr)-1] = &ast.Ident{NamePos: pos, Name: "err"}
+	}
+	block := &ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ReturnStmt{
 				Results: resultsExpr,
 			},
 		},
-	}, nil
+	}
+	if pos.IsValid() {
+		block.Lbrace = pos
+		block.List[0].(*ast.ReturnStmt).Return = pos
+		block.Rbrace = pos
+	}
+	return block, nil
 }
 
 func getReaderFileName(reader io.Reader) string {
@@ -135,7 +170,7 @@ func getReaderFileName(reader io.Reader) string {
 
 func Transpile(input io.Reader, output io.Writer) error {
 	fset := token.NewFileSet()
-	file := parser.ParseFile(fset, getReaderFileName(input), input, 0)?
+	file := parser.ParseFile(fset, getReaderFileName(input), input, parser.ParseComments)?
 
 	// ast.Print(fset, file)
 
@@ -153,12 +188,13 @@ func Transpile(input io.Reader, output io.Writer) error {
 			if !ok {
 				break
 			}
+			ifPos := posAfterTrailingComments(fset, file.Comments, x)
 			enclosingFunc := getEnclosingFuncType()? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			handler := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results)? {
+			handler := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results, ifPos)? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
@@ -167,11 +203,8 @@ func Transpile(input io.Reader, output io.Writer) error {
 			x.Lhs = append(x.Lhs, &ast.Ident{Name: "err"})
 
 			c.InsertAfter(&ast.IfStmt{
-				Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "err"},
-					Op: token.NEQ,
-					Y:  &ast.Ident{Name: "nil"},
-				},
+				If:   ifPos,
+				Cond: genErrNotNilCond(ifPos),
 				Body: handler})
 		case *ast.ExprStmt:
 			// Handle f()?
@@ -179,18 +212,20 @@ func Transpile(input io.Reader, output io.Writer) error {
 			if !ok {
 				break
 			}
+			ifPos := posAfterTrailingComments(fset, file.Comments, x)
 
 			enclosingFunc := getEnclosingFuncType()? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
-			handler := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results)? {
+			handler := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results, ifPos)? {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 				return false
 			}
 
 			c.Replace(&ast.IfStmt{
+				If: ifPos,
 				Init: &ast.AssignStmt{
 					Lhs: []ast.Expr{
 						&ast.Ident{Name: "err"},
@@ -200,23 +235,20 @@ func Transpile(input io.Reader, output io.Writer) error {
 						tryX.X,
 					},
 				},
-				Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "err"},
-					Op: token.NEQ,
-					Y:  &ast.Ident{Name: "nil"},
-				},
+				Cond: genErrNotNilCond(ifPos),
 				Body: handler,
 			})
 		case *ast.IfStmt:
 			// Handle if statements with TryExpr in condition
 			// Specifically handle the pattern: if f()? > 0 { ... }
 			if tryExpr := findTopLevelTryExpr(x.Cond); tryExpr != nil {
+				ifPos := posAfterTrailingComments(fset, file.Comments, x)
 				enclosingFunc := getEnclosingFuncType()? {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
 
-				handler := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results)? {
+				handler := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results, ifPos)? {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
 					return false
 				}
@@ -226,6 +258,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 
 				// Create the new if statement with init
 				newIf := &ast.IfStmt{
+					If: ifPos,
 					Init: &ast.AssignStmt{
 						Lhs: []ast.Expr{
 							&ast.Ident{Name: "result"},
@@ -234,11 +267,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 						Tok: token.DEFINE,
 						Rhs: []ast.Expr{tryExpr.X},
 					},
-					Cond: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "err"},
-						Op: token.NEQ,
-						Y:  &ast.Ident{Name: "nil"},
-					},
+					Cond: genErrNotNilCond(ifPos),
 					Body: handler,
 					Else: &ast.IfStmt{
 						Cond: newCond,

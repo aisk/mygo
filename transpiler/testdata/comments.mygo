@@ -1,0 +1,15 @@
+package main
+
+import "fmt"
+
+// process keeps comments through transpilation.
+func process() error {
+	// call someFunc before printing
+	result := someFunc()? // original call
+	fmt.Println(result)  // print result
+	return nil
+}
+
+func someFunc() (string, error) {
+	return "hello", nil
+}
