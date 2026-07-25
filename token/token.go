@@ -201,7 +201,7 @@ var tokens = [...]string{
 	SEMICOLON: ";",
 	COLON:     ":",
 
-	QUESTION:  "?",
+	QUESTION: "?",
 
 	BREAK:    "break",
 	CASE:     "case",

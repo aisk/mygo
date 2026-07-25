@@ -5,8 +5,8 @@
 package token_test
 
 import (
-	"go/build"
 	"github.com/aisk/mygo/token"
+	"go/build"
 	"math/rand/v2"
 	"os"
 	"path/filepath"

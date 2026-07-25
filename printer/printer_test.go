@@ -10,9 +10,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aisk/mygo/ast"
+	"github.com/aisk/mygo/internal/diff"
 	"github.com/aisk/mygo/parser"
 	"github.com/aisk/mygo/token"
-	"github.com/aisk/mygo/internal/diff"
 	"io"
 	"os"
 	"path/filepath"
@@ -548,7 +548,6 @@ func TestBaseIndent(t *testing.T) {
 	}
 
 	for indent := 0; indent < 4; indent++ {
-		indent := indent
 		t.Run(fmt.Sprint(indent), func(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer

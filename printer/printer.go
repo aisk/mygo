@@ -8,8 +8,8 @@ package printer
 import (
 	"fmt"
 	"github.com/aisk/mygo/ast"
-	"go/build/constraint"
 	"github.com/aisk/mygo/token"
+	"go/build/constraint"
 	"io"
 	"os"
 	"strings"

@@ -1,6 +1,6 @@
 module github.com/aisk/mygo
 
-go 1.24.3
+go 1.26.5
 
 require golang.org/x/term v0.23.0
 
