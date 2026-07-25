@@ -7,6 +7,9 @@ func process() error {
 	// call someFunc before printing
 	result := someFunc()? // original call
 	fmt.Println(result)  // print result
+	other := someFunc()?
+	// comment after a try expression
+	fmt.Println(other)
 	return nil
 }
 

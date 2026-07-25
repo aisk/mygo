@@ -36,6 +36,11 @@ func posAfterTrailingComments(fset *token.FileSet, comments []*ast.CommentGroup,
 		}
 	}
 	if !found {
+		for _, comment := range comments {
+			if comment.Pos() > pos {
+				return pos
+			}
+		}
 		return token.NoPos
 	}
 	return pos

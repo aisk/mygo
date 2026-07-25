@@ -12,6 +12,12 @@ func process() error {
 		return err
 	}
 	fmt.Println(result) // print result
+	other, err := someFunc()
+	if err != nil {
+		return err
+	}
+	// comment after a try expression
+	fmt.Println(other)
 	return nil
 }
 
