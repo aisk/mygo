@@ -106,7 +106,7 @@ Because `transpiler.go` is generated, edit `transpiler.mygo` and regenerate — 
 
 ### Return Value Generation
 
-`genResults` in `transpiler/transpiler.go` generates the zero-value return expressions for each return type when propagating an error. Supported types: numeric types, `bool`, `string`, `error`, pointer types (`*T`), and qualified types (`pkg.T`). Unhandled types cause a transpile error.
+`genResults` in `transpiler/transpiler.go` generates the zero-value return expressions for each return type when propagating an error. Common types get idiomatic zero values (`0`, `false`, `""`, `nil` for nilable types such as pointers, slices, maps, channels, funcs, and interfaces); any other type (structs, fixed-size arrays, generic instantiations, etc.) falls back to `*new(T)`, so all return types are supported. Fields declaring multiple names (e.g. `a, b int`) produce one zero value per name.
 
 ## Testing
 

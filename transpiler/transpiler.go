@@ -3,6 +3,7 @@
 package transpiler
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -75,10 +76,11 @@ func getEnclosingFuncType() (*ast.FuncType, error) {
 	return ftype, nil
 }
 
-func genEmptyValueExpr(field *ast.Field) (ast.Expr, error) {
-	if ident, ok := field.Type.(*ast.Ident); ok {
-		switch field.Type.(*ast.Ident).Name {
-		case "error":
+func genEmptyValueExpr(fset *token.FileSet, typ ast.Expr) (ast.Expr, error) {
+	switch t := typ.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "error", "any":
 			return &ast.Ident{Name: "nil"}, nil
 		case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64", "uintptr", "rune", "byte":
 			return &ast.BasicLit{Kind: token.INT, Value: "0"}, nil
@@ -86,38 +88,32 @@ func genEmptyValueExpr(field *ast.Field) (ast.Expr, error) {
 			return &ast.Ident{Name: "false"}, nil
 		case "string":
 			return &ast.BasicLit{Kind: token.STRING, Value: `""`}, nil
-		default:
-			return &ast.StarExpr{
-				X: &ast.CallExpr{
-					Fun: &ast.Ident{Name: "new"},
-					Args: []ast.Expr{
-						&ast.Ident{Name: ident.Name},
-					},
-				},
-			}, nil
 		}
-	} else if selector, ok := field.Type.(*ast.SelectorExpr); ok {
-		return &ast.StarExpr{
-			X: &ast.CallExpr{
-				Fun: &ast.Ident{Name: "new"},
-				Args: []ast.Expr{
-					&ast.SelectorExpr{
-						X:   &ast.Ident{Name: selector.X.(*ast.Ident).Name},
-						Sel: &ast.Ident{Name: selector.Sel.Name},
-					},
-				},
-			},
-		}, nil
-	} else if _, ok := field.Type.(*ast.StarExpr); ok {
+	case *ast.StarExpr, *ast.MapType, *ast.ChanType, *ast.FuncType, *ast.InterfaceType:
 		return &ast.Ident{Name: "nil"}, nil
-	} else if _, ok := field.Type.(*ast.ArrayType); ok {
-		return &ast.Ident{Name: "nil"}, nil
-	} else {
-		return nil, fmt.Errorf("unhandled result type: %T", field.Type)
+	case *ast.ArrayType:
+		if t.Len == nil { // a slice, not a fixed-size array
+			return &ast.Ident{Name: "nil"}, nil
+		}
+	case *ast.ParenExpr:
+		return genEmptyValueExpr(fset, t.X)
 	}
+	// *new(T) is the zero value of any type T. Render the type to a plain
+	// string so the generated expression carries no position info from the
+	// function signature, which would confuse the printer's line tracking.
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, typ); err != nil {
+		return *new(ast.Expr), err
+	}
+	return &ast.StarExpr{
+		X: &ast.CallExpr{
+			Fun:  &ast.Ident{Name: "new"},
+			Args: []ast.Expr{&ast.Ident{Name: buf.String()}},
+		},
+	}, nil
 }
 
-func genResults(results *ast.FieldList) ([]ast.Expr, error) {
+func genResults(fset *token.FileSet, results *ast.FieldList) ([]ast.Expr, error) {
 	if results == nil || len(results.List) == 0 {
 		return nil, fmt.Errorf("try expression used in function that does not return an error")
 	}
@@ -131,13 +127,20 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 		return nil, fmt.Errorf("try expression used in function that does not return an error")
 	}
 
-	// Generate empty values for all parameters
+	// Generate empty values for all parameters. A field may declare several
+	// names (e.g. `a, b int`) and needs one value per name.
 	for _, field := range fields {
-		expr, err := genEmptyValueExpr(field)
+		expr, err := genEmptyValueExpr(fset, field.Type)
 		if err != nil {
 			return nil, err
 		}
-		resultsExpr = append(resultsExpr, expr)
+		count := len(field.Names)
+		if count == 0 {
+			count = 1
+		}
+		for i := 0; i < count; i++ {
+			resultsExpr = append(resultsExpr, expr)
+		}
 	}
 
 	// Replace the last parameter (which is error) with "err"
@@ -146,12 +149,12 @@ func genResults(results *ast.FieldList) ([]ast.Expr, error) {
 	return resultsExpr, nil
 }
 
-func genErrorHandlerBlock(handler *ast.BlockStmt, results *ast.FieldList, pos token.Pos) (*ast.BlockStmt, error) {
+func genErrorHandlerBlock(fset *token.FileSet, handler *ast.BlockStmt, results *ast.FieldList, pos token.Pos) (*ast.BlockStmt, error) {
 	if handler != nil {
 		return handler, nil
 	}
 
-	resultsExpr, err := genResults(results)
+	resultsExpr, err := genResults(fset, results)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +215,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 				return false
 			}
 
-			handler, err := genErrorHandlerBlock(rhs.Handler, enclosingFunc.Results, ifPos)
+			handler, err := genErrorHandlerBlock(fset, rhs.Handler, enclosingFunc.Results, ifPos)
 
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
@@ -241,7 +244,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 				return false
 			}
 
-			handler, err := genErrorHandlerBlock(tryX.Handler, enclosingFunc.Results, ifPos)
+			handler, err := genErrorHandlerBlock(fset, tryX.Handler, enclosingFunc.Results, ifPos)
 
 			if err != nil {
 				transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
@@ -274,7 +277,7 @@ func Transpile(input io.Reader, output io.Writer) error {
 					return false
 				}
 
-				handler, err := genErrorHandlerBlock(tryExpr.Handler, enclosingFunc.Results, ifPos)
+				handler, err := genErrorHandlerBlock(fset, tryExpr.Handler, enclosingFunc.Results, ifPos)
 
 				if err != nil {
 					transpileError = fmt.Errorf("%s: %v", fset.Position(x.Pos()), err)
