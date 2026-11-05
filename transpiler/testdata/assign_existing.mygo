@@ -1,0 +1,27 @@
+package main
+
+func f() (int, error) {
+	return 1, nil
+}
+
+func pair() (int, string, error) {
+	return 2, "two", nil
+}
+
+func key() string {
+	return "k"
+}
+
+func assign() error {
+	var x int
+	var s string
+	m := map[string]int{}
+	x = f()?
+	x, s = pair()?
+	_, s = pair()?
+	_ = f()?
+	x += f()?
+	m[key()] = f()?
+	_, _, _ = x, s, m
+	return nil
+}

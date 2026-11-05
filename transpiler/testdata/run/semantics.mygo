@@ -1,0 +1,141 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+var calls []string
+
+func trace(name string, v int) int {
+	calls = append(calls, name)
+	return v
+}
+
+func flag(name string, b bool) bool {
+	calls = append(calls, name)
+	return b
+}
+
+func val(name string, v int, fail bool) (int, error) {
+	calls = append(calls, name)
+	if fail {
+		return 0, errors.New(name + " failed")
+	}
+	return v, nil
+}
+
+func report(label string, result any, err error) {
+	fmt.Printf("%s: result=%v err=%v calls=%s\n", label, result, err, strings.Join(calls, ","))
+	calls = nil
+}
+
+func and(left bool) (string, error) {
+	if flag("left", left) && val("right", 1, false)? > 0 {
+		return "then", nil
+	}
+	return "else", nil
+}
+
+func or(left, fail bool) (string, error) {
+	if flag("left", left) || val("right", 1, fail)? > 0 {
+		return "then", nil
+	}
+	return "else", nil
+}
+
+func operandOrder() (bool, error) {
+	if trace("a", 1)+val("b", 2, false)? == trace("c", 3) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func ifInit() (int, error) {
+	if n := trace("init", 5); val("cond", 1, false)? < n {
+		return n, nil
+	}
+	return 0, nil
+}
+
+func ifInitTry(fail bool) (int, error) {
+	if v := val("init", 7, fail)?; v > 6 {
+		return v, nil
+	}
+	return 0, nil
+}
+
+func noShadow() (string, error) {
+	result := 10
+	if val("f", 20, false)? > result {
+		return "bigger", nil
+	}
+	return "not bigger", nil
+}
+
+func assignOrder() (map[string]int, error) {
+	m := map[string]int{}
+	m[fmt.Sprint("k", trace("key", 0))] = val("value", 2, false)?
+	return m, nil
+}
+
+func assignKeeps(x *int, fail bool) error {
+	*x = val("assign", 3, fail)?
+	return nil
+}
+
+func varDecl() (string, error) {
+	var y = val("y", 4, false)?
+	var s fmt.Stringer = stringer("s")?
+	var (
+		a = 1
+		b = val("b", 5, false)?
+	)
+	return fmt.Sprint(y, s, a, b), nil
+}
+
+type name string
+
+func (n name) String() string { return "name:" + string(n) }
+
+func stringer(n string) (name, error) {
+	calls = append(calls, n)
+	return name(n), nil
+}
+
+func main() {
+	r, err := and(false)
+	report("and(false)", r, err)
+	r, err = and(true)
+	report("and(true)", r, err)
+	r, err = or(true, true)
+	report("or(true)", r, err)
+	r, err = or(false, true)
+	report("or(false, fail)", r, err)
+
+	b, err := operandOrder()
+	report("operandOrder", b, err)
+
+	n, err := ifInit()
+	report("ifInit", n, err)
+	n, err = ifInitTry(false)
+	report("ifInitTry", n, err)
+	n, err = ifInitTry(true)
+	report("ifInitTry(fail)", n, err)
+
+	r, err = noShadow()
+	report("noShadow", r, err)
+
+	m, err := assignOrder()
+	report("assignOrder", m, err)
+
+	x := 1
+	err = assignKeeps(&x, true)
+	report("assignKeeps(fail)", x, err)
+	err = assignKeeps(&x, false)
+	report("assignKeeps", x, err)
+
+	r, err = varDecl()
+	report("varDecl", r, err)
+}

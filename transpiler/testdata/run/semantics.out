@@ -1,0 +1,13 @@
+and(false): result=else err=<nil> calls=left
+and(true): result=then err=<nil> calls=left,right
+or(true): result=then err=<nil> calls=left
+or(false, fail): result= err=right failed calls=left,right
+operandOrder: result=true err=<nil> calls=a,b,c
+ifInit: result=5 err=<nil> calls=init,cond
+ifInitTry: result=7 err=<nil> calls=init
+ifInitTry(fail): result=0 err=init failed calls=init
+noShadow: result=bigger err=<nil> calls=f
+assignOrder: result=map[k0:2] err=<nil> calls=key,value
+assignKeeps(fail): result=1 err=assign failed calls=assign
+assignKeeps: result=3 err=<nil> calls=assign
+varDecl: result=4name:s1 5 err=<nil> calls=y,s,b
