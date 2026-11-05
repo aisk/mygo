@@ -6,19 +6,23 @@ func someFunc() (int, error) {
 	return 1, nil
 }
 
+func boolFunc() (bool, error) {
+	return true, nil
+}
+
 func callSomeFunc() (bool, error) {
-	if result, err := someFunc(); err != nil {
+	if result1, err := someFunc(); err != nil {
 		return false, err
-	} else if result > 0 {
+	} else if result1 > 0 {
 		return true, nil
-	} else if result, err := someFunc(); err != nil {
+	} else if result, err := boolFunc(); err != nil {
 		return false, err
 	} else if result {
 		return true, nil
 	}
-	if result, err := someFunc(); err != nil {
+	if result2, err := boolFunc(); err != nil {
 		return false, err
-	} else if result {
+	} else if result2 {
 		return true, nil
 	}
 

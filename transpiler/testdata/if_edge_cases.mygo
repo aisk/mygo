@@ -1,0 +1,32 @@
+package main
+
+func f() (int, error) {
+	return 1, nil
+}
+
+func ok() bool {
+	return true
+}
+
+func edge() (bool, error) {
+	result := 2
+	if f()? > result {
+		return true, nil
+	}
+	if n := result; f()? > n {
+		return true, nil
+	}
+	if v := f()?; v > result {
+		return true, nil
+	}
+	if ok() && f()? > 0 {
+		return true, nil
+	}
+	if !ok() || f()? > 0 {
+		return true, nil
+	}
+	if ok() == (f()? > 0) {
+		return true, nil
+	}
+	return false, nil
+}

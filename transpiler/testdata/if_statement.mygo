@@ -4,14 +4,18 @@ func someFunc() (int, error) {
 	return 1, nil
 }
 
+func boolFunc() (bool, error) {
+	return true, nil
+}
+
 func callSomeFunc() (bool, error) {
 	if someFunc()? > 0 {
 		return true, nil
-	} else if someFunc() ? {
+	} else if boolFunc() ? {
         return true, nil
     }
 
-    if someFunc()? {
+    if boolFunc()? {
         return true, nil
     }
 

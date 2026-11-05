@@ -115,6 +115,7 @@ mygo tries to add syntax sugar without adding runtime lock-in. The generated fil
 To keep the generated Go readable, mygo intentionally avoids some rewrites:
 
 - method chaining like `a()?.b()?` is not supported
-- `?` in `for` initialization statements is not supported yet
+- `?` is supported in assignments (`x := f()?`, `x = f()?`, `x += f()?`), local `var` declarations, expression statements, and `if` init statements and conditions; elsewhere (`for`/`switch` headers, `return` values, package-level `var`, call arguments outside an `if` condition) mygo reports an error instead of emitting invalid Go
+- in `x = f()?` the left-hand side is only assigned when `err` is `nil`
 - expression statements like `f()?` require `f` to return only `error`; use `_ = f()?` when discarding non-error return values
 - custom handlers use the generated `err` variable and must return or otherwise handle control flow themselves

@@ -1,0 +1,30 @@
+package main
+
+import "fmt"
+
+type name string
+
+func (n name) String() string {
+	return string(n)
+}
+
+func f() (int, error) {
+	return 1, nil
+}
+
+func getName() (name, error) {
+	return "mygo", nil
+}
+
+func declare() (fmt.Stringer, error) {
+	var y = f()?
+	var s fmt.Stringer = getName()?
+	var _ = f()?
+	var (
+		a    = 1
+		b    = f()?
+		c, d = 3, 4
+	)
+	fmt.Println(y, a, b, c, d)
+	return s, nil
+}
